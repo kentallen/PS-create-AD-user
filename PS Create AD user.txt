@@ -1,0 +1,55 @@
+```powershell
+# Be om brukerinput
+do {
+    $firstName = Read-Host "Skriv inn fornavn"
+    $lastName = Read-Host "Skriv inn etternavn"
+    $username = Read-Host "Skriv inn ønsket brukernavn"
+    $groups = Read-Host "Skriv inn en kommaseparert liste over grupper"
+    
+    # Angi variabler for brukerinformasjon
+    $description = ""
+    $displayName = "$lastName, $firstName"
+    $password = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 16 | % {[char]$_})
+    $ouPath = "OU=Users,DC=example,DC=com"
+    $userPrincipalName = "$username@example.com"
+    $expirationDate = Read-Host "Skriv inn utløpsdato (dd.mm.yy)"
+    
+    # Angi beskrivelse basert på brukernavn
+    switch -Wildcard ($username.Substring(0,2)) {
+        "ma" { $description = "ma-bruker" }
+        "ka" { $description = "ka-bruker" }
+        "ra" { $description = "ra-bruker" }
+    }
+    
+    # Angi visningsnavn basert på brukernavn
+    switch -Wildcard ($username.Substring(0,2)) {
+        "ma" { $displayName = "$lastName, $firstName (ma-bruker)" }
+        "ka" { $displayName = "$lastName, $firstName (ka-bruker)" }
+        "ra" { $displayName = "$lastName, $firstName (ra-bruker)" }
+    }
+    
+    # Konverter utløpsdato til DateTime-objekt
+    $expirationDate = [DateTime]::ParseExact($expirationDate, "dd.MM.yy", $null)
+    
+    # Sjekk om ønsket brukernavn er i bruk
+    if (Get-ADUser -Filter "SamAccountName -eq '$username'" -ErrorAction SilentlyContinue) {
+        Write-Host "Brukernavnet er allerede i bruk. Velg et annet brukernavn."
+        $username = $null
+    }
+} until ($username)
+# Opprett bruker i Active Directory
+New-ADUser -Name "$firstName $lastName" `
+           -DisplayName $displayName `
+           -GivenName $firstName `
+           -Surname $lastName `
+           -SamAccountName $username `
+           -UserPrincipalName $userPrincipalName `
+           -Description $description `
+           -AccountPassword (ConvertTo-SecureString $password -AsPlainText -Force) `
+           -Enabled $true `
+           -Path $ouPath `
+           -AccountExpirationDate $expirationDate
+# Legg til brukeren i hver gruppe i listen
+foreach ($group in $groups.Split(",")) {
+    $group = $group.Trim()
+    if (Get-ADGroup -Filter "Name -eq '$
